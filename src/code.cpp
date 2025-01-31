@@ -1,123 +1,134 @@
-
 #include <iostream>
 #include <fstream>
-#include <sstream>
 #include <string>
 #include <filesystem>
 #include <curl/curl.h>
+#include <regex>
+#include <vector>
 
-using namespace std;
 namespace fs = std::filesystem;
 
-const string LOG_FILE_PATH = "test.logs.log";
-const string OUTPUT_DIR = "output";
-const string LOG_FILE_URL = "https://limewire.com/d/0c95044f-d489-4101-bf1a-ca48839eea86#cVKnm0pKXpN6pjsDwav4f5MNssotyy0C8Xvaor1bA5U";
+class LogExtractor {
+private:
+    static constexpr const char* LOG_FILE_PATH = "test.logs.log";
+    static constexpr const char* OUTPUT_DIR = "output";
+    static constexpr const char* LOG_FILE_URL = "https://limewire.com/d/0c95044f-d489-4101-bf1a-ca48839eea86#cVKnm0pKXpN6pjsDwav4f5MNssotyy0C8Xvaor1bA5U";
 
-// Function to write downloaded data into a file
-size_t writeData(void* ptr, size_t size, size_t nmemb, FILE* stream) {
-    return fwrite(ptr, size, nmemb, stream);
-}
-
-// Function to download log file if not present
-bool downloadLogFile() {
-    if (fs::exists(LOG_FILE_PATH)) {
-        cout << "Log file already exists." << endl;
-        return true;
+    // Improved write data function using size_t
+    static size_t writeCallback(void* contents, size_t size, size_t nmemb, FILE* userp) {
+        return fwrite(contents, size, nmemb, userp);
     }
 
-    cout << "Downloading log file..." << endl;
-    CURL* curl = curl_easy_init();
-    if (!curl) {
-        cerr << "Failed to initialize CURL" << endl;
-        return false;
+    // Optimized date validation with regex
+    static bool validateDate(const std::string& date) {
+        static const std::regex DATE_REGEX(R"(^\d{4}-\d{2}-\d{2}$)");
+        if (!std::regex_match(date, DATE_REGEX)) return false;
+
+        try {
+            int year = std::stoi(date.substr(0, 4));
+            int month = std::stoi(date.substr(5, 2));
+            int day = std::stoi(date.substr(8, 2));
+
+            // Basic month and day range check
+            return (month >= 1 && month <= 12 && day >= 1 && day <= 31);
+        } catch (...) {
+            return false;
+        }
     }
 
-    FILE* file = fopen(LOG_FILE_PATH.c_str(), "wb");
-    if (!file) {
-        cerr << "Failed to open file for writing: " << LOG_FILE_PATH << endl;
+    // Optimized file download
+    static bool downloadFile() {
+        if (fs::exists(LOG_FILE_PATH)) {
+            std::cout << "Log file already exists." << std::endl;
+            return true;
+        }
+
+        CURL* curl = curl_easy_init();
+        if (!curl) {
+            std::cerr << "CURL initialization failed" << std::endl;
+            return false;
+        }
+
+        FILE* file = fopen(LOG_FILE_PATH, "wb");
+        if (!file) {
+            std::cerr << "File creation error" << std::endl;
+            curl_easy_cleanup(curl);
+            return false;
+        }
+
+        curl_easy_setopt(curl, CURLOPT_URL, LOG_FILE_URL);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, file);
+        
+        CURLcode res = curl_easy_perform(curl);
+        
+        fclose(file);
         curl_easy_cleanup(curl);
-        return false;
+
+        return (res == CURLE_OK);
     }
 
-    curl_easy_setopt(curl, CURLOPT_URL, LOG_FILE_URL.c_str());
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeData);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, file);
-
-    CURLcode res = curl_easy_perform(curl);
-    fclose(file);
-    curl_easy_cleanup(curl);
-
-    if (res != CURLE_OK) {
-        cerr << "Download failed: " << curl_easy_strerror(res) << endl;
-        return false;
-    }
-
-    cout << "Download complete." << endl;
-    return true;
-}
-
-// Function to extract logs of a specific date
-void extractLogs(const string& date) {
-    if (!fs::exists(LOG_FILE_PATH)) {
-        cerr << "Log file not found. Please ensure it is downloaded." << endl;
-        return;
-    }
-
-    if (!fs::exists(OUTPUT_DIR)) {
-        fs::create_directories(OUTPUT_DIR);
-    }
-
-    string outputFilePath = OUTPUT_DIR + "/output_" + date + ".txt";
-    
-    // Check if output file exists
-    if (fs::exists(outputFilePath)) {
-        cout << "Output file for " << date << " already exists. Overwrite? (y/n): ";
-        char response;
-        cin >> response;
-        if (response != 'y' && response != 'Y') {
-            cout << "Operation aborted." << endl;
+    // Optimized log extraction with vector
+    static void extractMatchingLogs(const std::string& targetDate) {
+        std::ifstream logFile(LOG_FILE_PATH);
+        if (!logFile) {
+            std::cerr << "Cannot open log file" << std::endl;
             return;
         }
-    }
 
-    ifstream logFile(LOG_FILE_PATH);
-    ofstream outFile(outputFilePath);
-    if (!logFile || !outFile) {
-        cerr << "Error opening files!" << endl;
-        return;
-    }
+        // Ensure output directory exists
+        fs::create_directories(OUTPUT_DIR);
 
-    cout << "Extracting logs for " << date << "..." << endl;
-    string logLine;
-    while (getline(logFile, logLine)) {
-        if (logLine.find(date) != string::npos) { // Check if the line contains the date
-            outFile << logLine << endl;
-            cout << "Matched: " << logLine << endl;
+        // Prepare output file path
+        std::string outputPath = std::string(OUTPUT_DIR) + "/output_" + targetDate + ".txt";
+        std::ofstream outFile(outputPath);
+
+        if (!outFile) {
+            std::cerr << "Cannot create output file" << std::endl;
+            return;
         }
+
+        std::string logLine;
+        std::vector<std::string> matchedLogs;
+
+        // Single pass through the file
+        while (std::getline(logFile, logLine)) {
+            if (logLine.find(targetDate) != std::string::npos) {
+                matchedLogs.push_back(logLine);
+                std::cout << logLine << std::endl;
+                outFile << logLine << std::endl;
+            }
+        }
+
+        std::cout << "Extracted " << matchedLogs.size() << " log entries for " << targetDate << std::endl;
     }
 
-    logFile.close();
-    outFile.close();
+public:
+    static int run(const std::string& date) {
+        // Validate input
+        if (!validateDate(date)) {
+            std::cerr << "Invalid date format. Use YYYY-MM-DD" << std::endl;
+            return 1;
+        }
 
-    cout << "Logs for " << date << " saved to " << outputFilePath << endl;
-}
+        // Download log file
+        if (!downloadFile()) {
+            std::cerr << "Log file download failed" << std::endl;
+            return 1;
+        }
+
+        // Extract logs
+        extractMatchingLogs(date);
+
+        return 0;
+    }
+};
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
-        cerr << "Usage: " << argv[0] << " YYYY-MM-DD" << endl;
+        std::cerr << "Usage: " << argv[0] << " YYYY-MM-DD" << std::endl;
         return 1;
     }
 
-    string date = argv[1];
-    if (date.length() != 10 || date[4] != '-' || date[7] != '-') {
-        cerr << "Invalid date format. Use YYYY-MM-DD." << endl;
-        return 1;
-    }
-
-    if (!downloadLogFile()) {
-        return 1;
-    }
-
-    extractLogs(date);
-    return 0;
+    return LogExtractor::run(argv[1]);
 }

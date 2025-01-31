@@ -25,4 +25,52 @@ Simplicity: The streaming approach is straightforward to implement and does not 
 
 How to run this code :-
 
+1️⃣ Save the C++ Code
+Open a text editor (VS Code, Notepad++, or Sublime Text).
+Copy the C++ code you provided.
+Save the file as extract_logs.cpp in a folder like:
+Windows: C:\Users\YourName\logs_project\
+macOS/Linux: ~/logs_project/
+2️⃣ Install Necessary Tools
+🔹 Windows
+Install MinGW-w64 (if not installed):
+Download it from MinGW-w64.
+Add the bin folder (e.g., C:\mingw-w64\bin) to your System PATH.
+Check installation by running:
+g++ --version
+Install cURL library (needed for downloading logs).
+Download from cURL for Windows.
+Install it and add its bin folder to System PATH.
+🔹 macOS/Linux
+Install g++ and cURL (if not installed):
+sudo apt update && sudo apt install g++ curl libcurl4-openssl-dev -y  # Ubuntu/Debian  
+brew install gcc curl                                                  # macOS  
+Check installation:
+g++ --version  
+3️⃣ Open Terminal or Command Prompt
+Windows: Press Win + R, type cmd, and press Enter.
+macOS/Linux: Open Terminal (Ctrl + Alt + T for Linux).
+Navigate to the folder where your code is saved:
+cd C:\Users\YourName\logs_project\   # Windows  
+cd ~/logs_project/                    # macOS/Linux  
+4️⃣ Download the Log File
+Run the following command to download the log file:
+curl -L -o test_logs.log "https://limewire.com/d/90794bb3-6831-4e02-8a59-ffc7f3b8b2a3#X1xnzrH5s4H_DKEkT_dfBuUT1mFKZuj4cFWNoMJGX98"
+Wait for the download to complete.
+5️⃣ Compile the C++ Code
+Run this command to compile the program:
+g++ extract_logs.cpp -o extract_logs -lcurl  
+If no errors appear, your program compiled successfully!
+6️⃣ Run the Program
+Now, execute the program with a date argument:
+./extract_logs 2024-12-01   # macOS/Linux  
+extract_logs.exe 2024-12-01  # Windows  
+7️⃣ Check the Output File
+Once the program runs, it will save logs in a file inside the output/ folder.
+To view the extracted logs:
+Windows: Open the file in Notepad:
+notepad output\output_2024-12-01.txt  
+macOS/Linux: Use cat or nano:
+cat output/output_2024-12-01.txt  
+
 
